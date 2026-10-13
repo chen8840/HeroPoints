@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>HeroXP - 积分乐园</title>
+
+  <meta name="theme-color" content="#f59e0b">
+  <link rel="manifest" href="./manifest.webmanifest">
+
+  <!-- iOS PWA 配置 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="HeroXP">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+
+  <link rel="stylesheet" href="./assets/app.css">
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans flex justify-center min-h-screen">
+
+  <!-- 手机容器 -->
+  <div class="w-full max-w-md bg-white min-h-app flex flex-col shadow-xl relative pb-20">
+
+    <!-- 顶部常驻积分总览与同步栏 -->
+    <header class="bg-gradient-to-r from-amber-400 to-orange-500 text-white p-5 pt-[calc(env(safe-area-inset-top)+1.25rem)] rounded-b-3xl shadow-md">
+      <div class="flex justify-between items-start">
+        <div>
+          <p class="text-xs font-semibold opacity-90 tracking-wide uppercase">HeroXP 当前可用积分</p>
+          <div class="flex items-baseline gap-1 mt-1">
+            <span class="text-4xl font-extrabold tracking-tight" id="headerPoints">0</span>
+            <span class="text-sm font-medium">★ EXP</span>
+          </div>
+          <!-- 同步状态指示灯 -->
+          <div class="flex items-center gap-1.5 mt-1.5 text-[10px] text-white/85 font-medium">
+            <span id="syncDot" class="w-1.5 h-1.5 rounded-full bg-emerald-300"></span>
+            <span id="syncTimeLabel">本地已就绪</span>
+          </div>
+        </div>
+
+        <!-- 顶部操作区：手动同步 + 兑换入口 -->
+        <div class="flex items-center gap-1.5 pt-1 whitespace-nowrap">
+          <button id="headerSyncBtn" class="bg-white/20 hover:bg-white/30 active:scale-95 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1">
+            <svg id="syncIcon" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <span id="syncBtnText">同步</span>
+          </button>
+          <button id="headerShopBtn" class="bg-white/20 hover:bg-white/30 active:scale-95 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1">
+            🎁 兑换
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 新版本提示 -->
+    <div id="updateBanner" class="hidden mx-4 mt-3 p-3 bg-slate-800 text-white rounded-2xl flex justify-between items-center gap-2">
+      <span class="text-xs font-bold">新版本已就绪</span>
+      <span class="flex gap-2">
+        <button id="updateApplyBtn" class="px-2.5 py-1 bg-orange-500 rounded-lg text-[11px] font-bold">立即刷新</button>
+        <button id="updateDismissBtn" class="px-2.5 py-1 bg-white/15 rounded-lg text-[11px] font-bold">稍后</button>
+      </span>
+    </div>
+
+    <!-- 主体内容切换区 -->
+    <main class="flex-1 overflow-y-auto p-4 no-scrollbar">
+
+      <!-- ==================== Tab 1: 日历打分 ==================== -->
+      <section id="tab-calendar" class="tab-content block space-y-4">
+        <div class="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-200">
+          <button id="btnPrevMonth" class="p-2 hover:bg-slate-200 rounded-lg text-slate-600 font-bold">◀</button>
+          <h2 class="text-base font-bold text-slate-700" id="currentMonthLabel">-</h2>
+          <button id="btnNextMonth" class="p-2 hover:bg-slate-200 rounded-lg text-slate-600 font-bold">▶</button>
+        </div>
+
+        <div class="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400">
+          <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+        </div>
+
+        <div id="calendarGrid" class="grid grid-cols-7 gap-1.5"></div>
+      </section>
+
+      <!-- ==================== Tab 2: 积分兑换商城 ==================== -->
+      <section id="tab-shop" class="tab-content hidden space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-lg font-bold">🎁 积分兑换方案</h2>
+          <div class="flex gap-2">
+            <button id="redeemHistoryOpenBtn" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-full font-bold">📜 兑换记录</button>
+            <button id="addRewardBtn" class="text-xs bg-orange-500 text-white px-3 py-1.5 rounded-full font-bold shadow">+ 新增方案</button>
+          </div>
+        </div>
+        <div id="rewardList" class="space-y-3"></div>
+      </section>
+
+      <!-- ==================== Tab 3: 数据统计 ==================== -->
+      <section id="tab-stats" class="tab-content hidden space-y-4">
+        <div class="flex bg-slate-100 p-1 rounded-xl">
+          <button id="statModeMonthBtn" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-white text-orange-500 shadow-sm transition">月度统计</button>
+          <button id="statModeYearBtn" class="flex-1 py-1.5 rounded-lg text-xs font-bold text-slate-500 transition">年度统计</button>
+        </div>
+
+        <div class="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-200">
+          <button id="btnPrevPeriod" class="p-2 hover:bg-slate-200 rounded-lg text-slate-600 font-bold">◀</button>
+          <h2 class="text-base font-bold text-slate-700" id="statPeriodLabel">-</h2>
+          <button id="btnNextPeriod" class="p-2 hover:bg-slate-200 rounded-lg text-slate-600 font-bold">▶</button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-emerald-50 border border-emerald-100 p-3.5 rounded-2xl">
+            <p class="text-xs text-emerald-600 font-medium">累计获得加分</p>
+            <p class="text-2xl font-black text-emerald-600 mt-1" id="statEarned">+0</p>
+          </div>
+          <div class="bg-rose-50 border border-rose-100 p-3.5 rounded-2xl">
+            <p class="text-xs text-rose-600 font-medium">累计违纪扣分</p>
+            <p class="text-2xl font-black text-rose-600 mt-1" id="statDeducted">-0</p>
+          </div>
+          <div class="bg-amber-50 border border-amber-100 p-3.5 rounded-2xl">
+            <p class="text-xs text-amber-600 font-medium">兑换消耗积分</p>
+            <p class="text-2xl font-black text-amber-600 mt-1" id="statSpent">0</p>
+          </div>
+          <div class="bg-blue-50 border border-blue-100 p-3.5 rounded-2xl">
+            <p class="text-xs text-blue-600 font-medium">期间净增积分</p>
+            <p class="text-2xl font-black text-blue-600 mt-1" id="statNet">0</p>
+          </div>
+        </div>
+
+        <div class="bg-white border border-slate-100 shadow-sm p-4 rounded-2xl space-y-3">
+          <h3 class="text-sm font-bold text-slate-700">该周期达成频次排行</h3>
+          <div id="statCategoryBars" class="space-y-2 text-xs"></div>
+        </div>
+      </section>
+
+      <!-- ==================== Tab 4: 规则与类别管理 ==================== -->
+      <section id="tab-rules" class="tab-content hidden space-y-4">
+        <div class="flex justify-between items-center h-8">
+          <h2 class="text-base font-bold text-slate-800 flex items-center gap-1.5 leading-none">
+            <span>⚙️</span> 规则与类别设置
+          </h2>
+          <div class="flex items-center gap-2">
+            <button id="addCategoryBtn" class="h-7 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-xs font-bold flex items-center justify-center transition">
+              + 新增类别
+            </button>
+            <button id="addRuleTopBtn" class="h-7 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-full text-xs font-bold flex items-center justify-center transition">
+              + 新增事项
+            </button>
+          </div>
+        </div>
+
+        <div id="ruleList" class="space-y-4"></div>
+
+        <!-- 底部数据备份、云端接口与安装 -->
+        <div class="mt-6 p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+          <div class="flex justify-between items-center">
+            <span class="text-xs font-bold text-slate-700">☁️ 数据备份与云端接口</span>
+            <button id="syncConfigOpenBtn" class="text-xs text-orange-600 font-bold hover:underline">配置云端接口</button>
+          </div>
+          <p class="text-[11px] text-slate-500 leading-relaxed">
+            数据保存在本机 LocalStorage，打分后无需等待网络。每天首次打开会自动检查云端；也可点右上角「同步」手动上传／合并（每天最多 3 次）。
+            Bin ID 与密钥只保存在本设备，不会随备份导出。
+          </p>
+          <div class="flex gap-2 pt-1">
+            <button id="exportDataBtn" class="flex-1 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-100">导出数据备份</button>
+            <button id="importDataBtn" class="flex-1 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-100">导入恢复数据</button>
+          </div>
+          <div class="pt-2 border-t border-slate-200/80 space-y-2" id="installWrap">
+            <span class="text-xs font-bold text-slate-700">📱 安装到手机桌面</span>
+            <div id="installSection" class="space-y-2"></div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 底部固定导航栏 -->
+    <nav class="fixed bottom-0 max-w-md w-full bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around pt-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] z-20">
+      <button id="btn-calendar" class="tab-btn flex flex-col items-center gap-1 text-orange-500 font-bold text-[11px]">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+        </svg>
+        打分日历
+      </button>
+      <button id="btn-shop" class="tab-btn flex flex-col items-center gap-1 text-slate-400 font-medium text-[11px]">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V4a2 2 0 114 0v4m-4 0a2 2 0 10-4 0v4m0 0H4a2 2 0 00-2 2v7a2 2 0 002 2h16a2 2 0 002-2v-7a2 2 0 00-2-2h-6z"></path>
+        </svg>
+        积分兑换
+      </button>
+      <button id="btn-stats" class="tab-btn flex flex-col items-center gap-1 text-slate-400 font-medium text-[11px]">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+        </svg>
+        得分统计
+      </button>
+      <button id="btn-rules" class="tab-btn flex flex-col items-center gap-1 text-slate-400 font-medium text-[11px]">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        规则类别
+      </button>
+    </nav>
+
+    <!-- ==================== 弹窗 1：每日打分抽屉面板 ==================== -->
+    <div id="scoreDrawer" class="fixed inset-0 bg-black/40 z-30 hidden flex flex-col justify-end">
+      <div class="bg-white rounded-t-3xl max-h-[85vh] flex flex-col overflow-hidden">
+        <div class="p-4 border-b flex justify-between items-center bg-slate-50">
+          <div>
+            <h3 class="font-bold text-slate-800" id="drawerDateTitle">打分</h3>
+            <p class="text-xs font-semibold text-slate-400">当天得分合计：<span id="drawerDailyTotal" class="text-orange-500 font-extrabold text-sm">+0</span></p>
+          </div>
+          <button id="drawerCloseBtn" class="text-slate-400 hover:text-slate-600 font-bold p-1 text-xl">✕</button>
+        </div>
+        <div id="drawerItemList" class="overflow-y-auto p-4 space-y-4 flex-1 overscroll-contain"></div>
+        <div class="p-3 border-t bg-white">
+          <button id="drawerSaveBtn" class="w-full bg-orange-500 text-white font-bold py-3 rounded-2xl shadow-lg shadow-orange-500/30">完成打分</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 弹窗 2：兑换方案编辑 ==================== -->
+    <div id="rewardModal" class="fixed inset-0 bg-black/40 z-40 hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4">
+        <h3 class="font-bold text-base" id="rewardModalTitle">新增/修改兑换方案</h3>
+        <div>
+          <label class="text-xs font-bold text-slate-500">所需积分</label>
+          <input type="number" id="rewardCost" inputmode="numeric" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold" placeholder="例如: 80">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">奖品方案内容</label>
+          <textarea id="rewardText" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl" rows="3" placeholder="例如: 1. 自选小零食1份; 2. 看10分钟动画片"></textarea>
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">限制规则 (选填)</label>
+          <input type="text" id="rewardRule" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl" placeholder="例如: 每周只可兑换一次">
+        </div>
+        <p id="rewardVersionHint" class="hidden text-[11px] text-amber-600 leading-relaxed">修改会生成新方案版本：历史兑换记录仍按当时的积分计算。</p>
+        <div class="flex gap-2 pt-2">
+          <button id="rewardCancelBtn" class="flex-1 py-2.5 text-slate-500 font-bold bg-slate-100 rounded-xl">取消</button>
+          <button id="rewardSaveBtn" class="flex-1 py-2.5 bg-orange-500 text-white font-bold rounded-xl">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 弹窗 2.5：兑换历史记录 ==================== -->
+    <div id="redeemHistoryModal" class="fixed inset-0 bg-black/40 z-40 hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-5 w-full max-w-sm flex flex-col max-h-[80vh]">
+        <div class="flex justify-between items-center pb-3 border-b">
+          <h3 class="font-bold text-base text-slate-800">📜 积分兑换历史记录</h3>
+          <button id="redeemHistoryCloseBtn" class="text-slate-400 font-bold text-lg">✕</button>
+        </div>
+        <div id="redeemHistoryList" class="overflow-y-auto py-3 space-y-2.5 flex-1 no-scrollbar"></div>
+        <div class="pt-3 border-t">
+          <button id="redeemHistoryCloseBtn2" class="w-full py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 弹窗 3：具体事项编辑 ==================== -->
+    <div id="ruleModal" class="fixed inset-0 bg-black/40 z-40 hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-5 w-full max-w-sm space-y-3">
+        <h3 class="font-bold text-base" id="ruleModalTitle">编辑具体事项</h3>
+        <div>
+          <label class="text-xs font-bold text-slate-500">所属项目类别</label>
+          <select id="ruleCategory" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold"></select>
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">具体事项描述</label>
+          <input type="text" id="ruleName" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium" placeholder="例如: 7:20按时起床">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">积分分值 (加分为正，扣分为负)</label>
+          <input type="number" id="rulePoints" inputmode="numeric" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold" placeholder="例如: 2 或 -10">
+        </div>
+        <p id="ruleVersionHint" class="hidden text-[11px] text-amber-600 leading-relaxed">修改分值从今天起生效：之前日期的历史打分保持原分值，今天及以后按新分值计算。</p>
+        <div class="flex gap-2 pt-2">
+          <button id="ruleCancelBtn" class="flex-1 py-2 text-slate-500 font-bold bg-slate-100 rounded-xl">取消</button>
+          <button id="ruleSaveBtn" class="flex-1 py-2 bg-slate-800 text-white font-bold rounded-xl">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 弹窗 4：类别增改弹窗 ==================== -->
+    <div id="categoryModal" class="fixed inset-0 bg-black/40 z-40 hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4">
+        <h3 class="font-bold text-base" id="categoryModalTitle">新增/修改类别</h3>
+        <div>
+          <label class="text-xs font-bold text-slate-500">类别名称</label>
+          <input type="text" id="categoryNameInput" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold" placeholder="例如: 家务劳动">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500 block mb-2">选择类别主题色</label>
+          <div class="grid grid-cols-4 gap-2.5" id="colorPaletteContainer"></div>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button id="categoryCancelBtn" class="flex-1 py-2 text-slate-500 font-bold bg-slate-100 rounded-xl">取消</button>
+          <button id="categorySaveBtn" class="flex-1 py-2 bg-orange-500 text-white font-bold rounded-xl">保存类别</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 弹窗 5：云端同步配置 ==================== -->
+    <div id="syncConfigModal" class="fixed inset-0 bg-black/40 z-40 hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-5 w-full max-w-sm space-y-3.5">
+        <h3 class="font-bold text-base text-slate-800">☁️ JSONBin 云端同步设置</h3>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          填写你在 jsonbin.io 创建的 Bin ID 与密钥。配置只保存在本设备浏览器中，不随源码、备份文件导出；同一家人的多台设备填写同一个 Bin。
+        </p>
+        <div>
+          <label class="text-xs font-bold text-slate-500">Bin ID</label>
+          <input type="text" id="cfgBinId" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono" placeholder="例如: 66a1b2c3d4...">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">密钥（Master Key 或 Access Key）</label>
+          <input type="password" id="cfgApiKey" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono" placeholder="粘贴 jsonbin.io 的密钥">
+        </div>
+        <p class="text-[10px] text-slate-400 leading-relaxed">
+          注意：密钥保存在浏览器本地，能接触本设备的他人可能读取到它，请勿在公用设备上填写。
+        </p>
+        <div class="flex gap-2 pt-1">
+          <button id="syncConfigCancelBtn" class="flex-1 py-2 text-slate-500 font-bold bg-slate-100 rounded-xl text-xs">取消</button>
+          <button id="syncConfigClearBtn" class="py-2 px-3 text-rose-500 font-bold bg-rose-50 rounded-xl text-xs">清除配置</button>
+          <button id="syncConfigSaveBtn" class="flex-1 py-2 bg-orange-500 text-white font-bold rounded-xl text-xs">保存配置</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 弹窗 6：同步冲突处理 ==================== -->
+    <div id="conflictModal" class="fixed inset-0 bg-black/40 z-50 hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-5 w-full max-w-sm flex flex-col max-h-[85vh]">
+        <h3 class="font-bold text-base text-slate-800" id="conflictModalTitle">检测到数据冲突</h3>
+        <p class="text-[11px] text-slate-500 leading-relaxed pt-1">
+          同一项内容在多台设备上被改成了不同的值。请选择保留哪一侧，确认前不会写入云端。
+        </p>
+        <div id="conflictList" class="overflow-y-auto py-3 space-y-2.5 flex-1 no-scrollbar"></div>
+        <div class="flex gap-2 pt-2 border-t">
+          <button id="conflictCancelBtn" class="flex-1 py-2.5 text-slate-500 font-bold bg-slate-100 rounded-xl text-xs">暂不处理</button>
+          <button id="conflictConfirmBtn" class="flex-1 py-2.5 bg-orange-500 text-white font-bold rounded-xl text-xs">确认合并</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>

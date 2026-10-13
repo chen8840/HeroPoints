@@ -1,0 +1,18 @@
+{
+  "name": "heroxp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HeroXP 小学生积分 PWA —— 家庭积分奖惩与兑换记录应用",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/dev.mjs",
+    "serve": "node scripts/serve.mjs",
+    "test": "node --test",
+    "check": "node scripts/check.mjs"
+  },
+  "devDependencies": {
+    "tailwindcss": "~3.4.17",
+    "vite": "^6.4.4"
+  }
+}

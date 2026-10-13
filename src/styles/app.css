@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  input,
+  textarea,
+  select {
+    -webkit-user-select: text;
+    user-select: text;
+    /* iOS Safari 对小于 16px 的输入框会在聚焦时自动放大页面 */
+    font-size: 16px;
+  }
+  button {
+    line-height: 1.25 !important;
+    vertical-align: middle;
+    touch-action: manipulation;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .min-h-app {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+}
