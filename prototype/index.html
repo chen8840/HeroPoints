@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>HeroXP - 积分乐园</title>
+
+  <!-- iOS PWA 配置 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="HeroXP">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+    /* 修正中文字体偏上 */
+    button { line-height: 1.25 !important; vertical-align: middle; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans flex justify-center min-h-screen">
+
+  <!-- 手机容器 -->
+  <div class="w-full max-w-md bg-white min-h-screen flex flex-col shadow-xl relative pb-20">
+
+    <!-- 顶部常驻积分总览与同步栏 -->
+    <header class="bg-gradient-to-r from-amber-400 to-orange-500 text-white p-5 pt-8 rounded-b-3xl shadow-md">
+      <div class="flex justify-between items-start">
+        <div>
+          <p class="text-xs font-semibold opacity-90 tracking-wide uppercase">HeroXP 当前可用积分</p>
+          <div class="flex items-baseline gap-1 mt-1">
+            <span class="text-4xl font-extrabold tracking-tight" id="headerPoints">0</span>
+            <span class="text-sm font-medium">★ EXP</span>
+          </div>
+          <!-- 同步状态指示灯 -->
+          <div class="flex items-center gap-1.5 mt-1.5 text-[10px] text-white/85 font-medium">
+            <span id="syncDot" class="w-1.5 h-1.5 rounded-full bg-emerald-300"></span>
+            <span id="syncTimeLabel">本地已就绪</span>
+          </div>
+        </div>
+
+        <!-- 顶部操作区：手动同步 + 兑换入口 -->
+        <div class="flex items-center gap-1.5 pt-1">
+          <button id="headerSyncBtn" onclick="triggerManualSync()" class="bg-white/20 hover:bg-white/30 active:scale-95 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1 shadow-xs">
+            <svg id="syncIcon" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <span id="syncBtnText">同步</span>
+          </button>
+          <button onclick="switchTab('shop')" class="bg-white/20 hover:bg-white/30 active:scale-95 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1 shadow-xs">
+            🎁 兑换
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 主体内容切换区 -->
+    <main class="flex-1 overflow-y-auto p-4 no-scrollbar">
+
+      <!-- ==================== Tab 1: 日历打分 ==================== -->
+      <section id="tab-calendar" class="tab-content block space-y-4">
+        <div class="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-200">
+          <button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-200 rounded-lg text-slate-600 font-bold">◀</button>
+          <h2 class="text-base font-bold text-slate-700" id="currentMonthLabel">2026年 10月</h2>
+          <button onclick="changeMonth(1)" class="p-2 hover:bg-slate-200 rounded-lg text-slate-600 font-bold">▶</button>
+        </div>
+
+        <div class="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400">
+          <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+        </div>
+
+        <div id="calendarGrid" class="grid grid-cols-7 gap-1.5"></div>
+      </section>
+
+      <!-- ==================== Tab 2: 积分兑换商城 ==================== -->
+      <section id="tab-shop" class="tab-content hidden space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-lg font-bold">🎁 积分兑换方案</h2>
+          <div class="flex gap-2">
+            <button onclick="openRedeemHistoryModal()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-full font-bold">📜 兑换记录</button>
+            <button onclick="openRewardModal()" class="text-xs bg-orange-500 text-white px-3 py-1.5 rounded-full font-bold shadow">+ 新增方案</button>
+          </div>
+        </div>
+        <div id="rewardList" class="space-y-3"></div>
+      </section>
+
+      <!-- ==================== Tab 3: 数据统计 ==================== -->
+      <section id="tab-stats" class="tab-content hidden space-y-4">
+        <div class="flex bg-slate-100 p-1 rounded-xl">
+          <button onclick="setStatMode('month')" id="statModeMonthBtn" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-white text-orange-500 shadow-sm transition">月度统计</button>
+          <button onclick="setStatMode('year')" id="statModeYearBtn" class="flex-1 py-1.5 rounded-lg text-xs font-bold text-slate-500 transition">年度统计</button>
+        </div>
+
+        <div class="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-200">
+          <button onclick="changeStatPeriod(-1)" class="p-2 hover:bg-slate-200 rounded-lg text-slate-600 font-bold">◀</button>
+          <h2 class="text-base font-bold text-slate-700" id="statPeriodLabel">2026年 10月</h2>
+          <button onclick="changeStatPeriod(1)" class="p-2 hover:bg-slate-200 rounded-lg text-slate-600 font-bold">▶</button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-emerald-50 border border-emerald-100 p-3.5 rounded-2xl">
+            <p class="text-xs text-emerald-600 font-medium">累计获得加分</p>
+            <p class="text-2xl font-black text-emerald-600 mt-1" id="statEarned">+0</p>
+          </div>
+          <div class="bg-rose-50 border border-rose-100 p-3.5 rounded-2xl">
+            <p class="text-xs text-rose-600 font-medium">累计违纪扣分</p>
+            <p class="text-2xl font-black text-rose-600 mt-1" id="statDeducted">-0</p>
+          </div>
+          <div class="bg-amber-50 border border-amber-100 p-3.5 rounded-2xl">
+            <p class="text-xs text-amber-600 font-medium">兑换消耗积分</p>
+            <p class="text-2xl font-black text-amber-600 mt-1" id="statSpent">0</p>
+          </div>
+          <div class="bg-blue-50 border border-blue-100 p-3.5 rounded-2xl">
+            <p class="text-xs text-blue-600 font-medium">期间净增积分</p>
+            <p class="text-2xl font-black text-blue-600 mt-1" id="statNet">0</p>
+          </div>
+        </div>
+
+        <div class="bg-white border border-slate-100 shadow-sm p-4 rounded-2xl space-y-3">
+          <h3 class="text-sm font-bold text-slate-700">该周期达成频次排行</h3>
+          <div id="statCategoryBars" class="space-y-2 text-xs"></div>
+        </div>
+      </section>
+
+      <!-- ==================== Tab 4: 规则与类别管理 ==================== -->
+      <section id="tab-rules" class="tab-content hidden space-y-4">
+        <div class="flex justify-between items-center h-8">
+          <h2 class="text-base font-bold text-slate-800 flex items-center gap-1.5 leading-none">
+            <span>⚙️</span> 规则与类别设置
+          </h2>
+          <div class="flex items-center gap-2">
+            <button onclick="openCategoryModal()" class="h-7 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-xs font-bold flex items-center justify-center transition">
+              + 新增类别
+            </button>
+            <button onclick="openRuleModal()" class="h-7 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-full text-xs font-bold flex items-center justify-center transition shadow-xs">
+              + 新增事项
+            </button>
+          </div>
+        </div>
+
+        <div id="ruleList" class="space-y-4"></div>
+
+        <!-- 底部数据备份与同步配置 -->
+        <div class="mt-6 p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+          <div class="flex justify-between items-center">
+            <span class="text-xs font-bold text-slate-700">☁️ 数据备份与云端接口</span>
+            <button onclick="openSyncConfigModal()" class="text-xs text-orange-600 font-bold hover:underline">配置云端接口</button>
+          </div>
+          <p class="text-[11px] text-slate-500 leading-relaxed">
+            数据默认保存在本地 LocalStorage。点击右上角“同步”可随时备份；绑定 JSONBin 后即可自动联网持久保存。
+          </p>
+          <div class="flex gap-2 pt-1">
+            <button onclick="exportDataJson()" class="flex-1 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-100">导出数据备份</button>
+            <button onclick="importDataJson()" class="flex-1 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-100">导入恢复数据</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 底部固定导航栏 -->
+    <nav class="fixed bottom-0 max-w-md w-full bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around py-2.5 z-20">
+      <button onclick="switchTab('calendar')" id="btn-calendar" class="tab-btn flex flex-col items-center gap-1 text-orange-500 font-bold text-[11px]">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+        </svg>
+        打分日历
+      </button>
+      <button onclick="switchTab('shop')" id="btn-shop" class="tab-btn flex flex-col items-center gap-1 text-slate-400 font-medium text-[11px]">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V4a2 2 0 114 0v4m-4 0a2 2 0 10-4 0v4m0 0H4a2 2 0 00-2 2v7a2 2 0 002 2h16a2 2 0 002-2v-7a2 2 0 00-2-2h-6z"></path>
+        </svg>
+        积分兑换
+      </button>
+      <button onclick="switchTab('stats')" id="btn-stats" class="tab-btn flex flex-col items-center gap-1 text-slate-400 font-medium text-[11px]">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+        </svg>
+        得分统计
+      </button>
+      <button onclick="switchTab('rules')" id="btn-rules" class="tab-btn flex flex-col items-center gap-1 text-slate-400 font-medium text-[11px]">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        规则类别
+      </button>
+    </nav>
+
+    <!-- ==================== 弹窗 1：每日打分抽屉面板 ==================== -->
+    <div id="scoreDrawer" class="fixed inset-0 bg-black/40 z-30 hidden flex flex-col justify-end">
+      <div class="bg-white rounded-t-3xl max-h-[85vh] flex flex-col overflow-hidden">
+        <div class="p-4 border-b flex justify-between items-center bg-slate-50">
+          <div>
+            <h3 class="font-bold text-slate-800" id="drawerDateTitle">打分</h3>
+            <p class="text-xs font-semibold text-slate-400">当天得分合计：<span id="drawerDailyTotal" class="text-orange-500 font-extrabold text-sm">+0</span></p>
+          </div>
+          <button onclick="closeDrawer()" class="text-slate-400 hover:text-slate-600 font-bold p-1 text-xl">✕</button>
+        </div>
+        <div id="drawerItemList" class="overflow-y-auto p-4 space-y-4 flex-1"></div>
+        <div class="p-3 border-t bg-white">
+          <button onclick="saveDailyScore()" class="w-full bg-orange-500 text-white font-bold py-3 rounded-2xl shadow-lg shadow-orange-500/30">完成打分</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 弹窗 2：兑换方案编辑 ==================== -->
+    <div id="rewardModal" class="fixed inset-0 bg-black/40 z-40 hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4">
+        <h3 class="font-bold text-base" id="rewardModalTitle">新增/修改兑换方案</h3>
+        <input type="hidden" id="rewardEditId">
+        <div>
+          <label class="text-xs font-bold text-slate-500">所需积分</label>
+          <input type="number" id="rewardCost" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold" placeholder="例如: 80">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">奖品方案内容</label>
+          <textarea id="rewardText" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" rows="3" placeholder="例如: 1. 自选小零食1份; 2. 看10分钟动画片"></textarea>
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">限制规则 (选填)</label>
+          <input type="text" id="rewardRule" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" placeholder="例如: 每周只可兑换一次">
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button onclick="closeRewardModal()" class="flex-1 py-2.5 text-slate-500 font-bold bg-slate-100 rounded-xl">取消</button>
+          <button onclick="saveRewardItem()" class="flex-1 py-2.5 bg-orange-500 text-white font-bold rounded-xl">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 弹窗 2.5：兑换历史记录 ==================== -->
+    <div id="redeemHistoryModal" class="fixed inset-0 bg-black/40 z-40 hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-5 w-full max-w-sm flex flex-col max-h-[80vh]">
+        <div class="flex justify-between items-center pb-3 border-b">
+          <h3 class="font-bold text-base text-slate-800">📜 积分兑换历史记录</h3>
+          <button onclick="closeRedeemHistoryModal()" class="text-slate-400 font-bold text-lg">✕</button>
+        </div>
+        <div id="redeemHistoryList" class="overflow-y-auto py-3 space-y-2.5 flex-1 no-scrollbar"></div>
+        <div class="pt-3 border-t">
+          <button onclick="closeRedeemHistoryModal()" class="w-full py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 弹窗 3：具体事项编辑 ==================== -->
+    <div id="ruleModal" class="fixed inset-0 bg-black/40 z-40 hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-5 w-full max-w-sm space-y-3">
+        <h3 class="font-bold text-base" id="ruleModalTitle">编辑具体事项</h3>
+        <input type="hidden" id="ruleEditId">
+        <div>
+          <label class="text-xs font-bold text-slate-500">所属项目类别</label>
+          <select id="ruleCategory" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm"></select>
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">具体事项描述</label>
+          <input type="text" id="ruleName" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" placeholder="例如: 7:20按时起床">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">积分分值 (加分为正，扣分为负)</label>
+          <input type="number" id="rulePoints" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold" placeholder="例如: 2 或 -10">
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button onclick="closeRuleModal()" class="flex-1 py-2 text-slate-500 font-bold bg-slate-100 rounded-xl">取消</button>
+          <button onclick="saveRuleItem()" class="flex-1 py-2 bg-slate-800 text-white font-bold rounded-xl">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 弹窗 4：类别增改弹窗 ==================== -->
+    <div id="categoryModal" class="fixed inset-0 bg-black/40 z-40 hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4">
+        <h3 class="font-bold text-base" id="categoryModalTitle">新增/修改类别</h3>
+        <input type="hidden" id="categoryOldName">
+        <div>
+          <label class="text-xs font-bold text-slate-500">类别名称</label>
+          <input type="text" id="categoryNameInput" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold" placeholder="例如: 家务劳动">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500 block mb-2">选择类别主题色</label>
+          <div class="grid grid-cols-4 gap-2.5" id="colorPaletteContainer"></div>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button onclick="closeCategoryModal()" class="flex-1 py-2 text-slate-500 font-bold bg-slate-100 rounded-xl">取消</button>
+          <button onclick="saveCategory()" class="flex-1 py-2 bg-orange-500 text-white font-bold rounded-xl">保存类别</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 弹窗 5：云端同步配置弹窗 ==================== -->
+    <div id="syncConfigModal" class="fixed inset-0 bg-black/40 z-40 hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-5 w-full max-w-sm space-y-3.5">
+        <h3 class="font-bold text-base text-slate-800">☁️ JSONBin 云端同步设置</h3>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          填写你在 jsonbin.io 申请的凭据，每次点击同步时会自动把数据持久化到你的专属云端 Bin。
+        </p>
+        <div>
+          <label class="text-xs font-bold text-slate-500">Bin ID</label>
+          <input type="text" id="cfgBinId" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono" placeholder="例如: 66a1b2c3d4...">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">Master Key (API 密钥)</label>
+          <input type="password" id="cfgApiKey" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono" placeholder="例如: $2a$10$abc...">
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button onclick="closeSyncConfigModal()" class="flex-1 py-2 text-slate-500 font-bold bg-slate-100 rounded-xl text-xs">取消</button>
+          <button onclick="saveSyncConfig()" class="flex-1 py-2 bg-orange-500 text-white font-bold rounded-xl text-xs">保存配置</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const PALETTE_COLORS = [
+      { name: "翠绿", hex: "#10b981" },
+      { name: "湖蓝", hex: "#3b82f6" },
+      { name: "暖橙", hex: "#f59e0b" },
+      { name: "警戒红", hex: "#ef4444" },
+      { name: "梦幻紫", hex: "#8b5cf6" },
+      { name: "甜心粉", hex: "#ec4899" },
+      { name: "青碧", hex: "#06b6d4" },
+      { name: "低调灰", hex: "#64748b" }
+    ];
+
+    let currentSelectedColor = "#10b981";
+
+    const DEFAULT_DATA = {
+      totalPoints: 0,
+      categories: [
+        { name: "生活习惯", color: "#10b981" },
+        { name: "学习习惯", color: "#3b82f6" },
+        { name: "加分项", color: "#f59e0b" },
+        { name: "扣分项", color: "#ef4444" }
+      ],
+      rewards: [
+        { id: 1, cost: 80, text: "1. 自选小零食1份\n2. 自选小文具1份\n3. 看10分钟英语动画片", rule: "每周限换1次" },
+        { id: 2, cost: 200, text: "1. 晚睡10分钟\n2. 自选零食3份\n3. 免口算一天", rule: "" },
+        { id: 3, cost: 400, text: "自选玩具一件 (20元以内)", rule: "" },
+        { id: 4, cost: 600, text: "1. 自选玩具一件 (50元以内)\n2. 自选小吃 (50元以内)\n3. Switch 1小时", rule: "" },
+        { id: 5, cost: 800, text: "1. 周末自由安排活动4小时\n2. Switch 1.5小时", rule: "" },
+        { id: 6, cost: 1000, text: "自选一份大餐 (自己选餐厅)", rule: "" }
+      ],
+      rules: [
+        { id: 101, category: "生活习惯", name: "7:20按时起床", points: 2 },
+        { id: 102, category: "生活习惯", name: "22:00前上床睡觉", points: 2 },
+        { id: 103, category: "生活习惯", name: "少吃零食，多吃饭、不浪费", points: 2 },
+        { id: 104, category: "生活习惯", name: "每天跳绳300个（200个3分）", points: 5 },
+        { id: 105, category: "生活习惯", name: "房间个人物品摆放好，书桌摆放整齐", points: 2 },
+        { id: 106, category: "生活习惯", name: "自己的事情自己做", points: 2 },
+        { id: 107, category: "生活习惯", name: "有礼貌、不乱发脾气，不撒谎", points: 2 },
+        { id: 108, category: "生活习惯", name: "做事不拖拉，听到指令立马行动", points: 5 },
+        { id: 201, category: "学习习惯", name: "早上坚持英语磨耳朵", points: 2 },
+        { id: 202, category: "学习习惯", name: "每日完成英格艾嘉发布任务", points: 2 },
+        { id: 203, category: "学习习惯", name: "书桌摆放整齐，写作业没有无关用品", points: 3 },
+        { id: 204, category: "学习习惯", name: "写作业认真，不打野，独立思考", points: 10 },
+        { id: 205, category: "学习习惯", name: "作业途中不下位，不上厕所不喝水讲话", points: 5 },
+        { id: 206, category: "学习习惯", name: "端正坐姿、字迹工整", points: 10 },
+        { id: 207, category: "学习习惯", name: "坚持每日背,默单词，朗读课文", points: 5 },
+        { id: 208, category: "学习习惯", name: "学习后整理自己书桌、书包", points: 2 },
+        { id: 209, category: "学习习惯", name: "坚持课外阅读20分钟", points: 2 },
+        { id: 210, category: "学习习惯", name: "坚持每日口算", points: 5 },
+        { id: 301, category: "加分项", name: "考试有进步", points: 10 },
+        { id: 302, category: "加分项", name: "期末考试数学，英语95分以上", points: 100 },
+        { id: 303, category: "加分项", name: "听写、计算全对", points: 10 },
+        { id: 401, category: "扣分项", name: "上学迟到；被老师点名批评", points: -10 },
+        { id: 402, category: "扣分项", name: "作业未完成", points: -10 },
+        { id: 403, category: "扣分项", name: "说话、打人、说脏话、沉迷游戏", points: -10 },
+        { id: 404, category: "扣分项", name: "乱发脾气、不讲道理", points: -10 },
+        { id: 405, category: "扣分项", name: "不听大人话、惹大人生气", points: -10 },
+        { id: 406, category: "扣分项", name: "周一到周四看电视/平板", points: -10 }
+      ],
+      dailyLogs: {},
+      redeemLogs: [],
+      syncConfig: { binId: "", apiKey: "" },
+      lastSyncTime: ""
+    };
+
+    let state = JSON.parse(localStorage.getItem('HERO_XP_DATA')) || DEFAULT_DATA;
+    if (!state.categories || state.categories.length === 0) {
+      state.categories = DEFAULT_DATA.categories;
+    } else if (typeof state.categories[0] === 'string') {
+      const colorMap = { "生活习惯": "#10b981", "学习习惯": "#3b82f6", "加分项": "#f59e0b", "扣分项": "#ef4444" };
+      state.categories = state.categories.map((cName, i) => ({
+        name: cName,
+        color: colorMap[cName] || PALETTE_COLORS[i % PALETTE_COLORS.length].hex
+      }));
+    }
+
+    function persist() {
+      let earned = 0;
+      Object.values(state.dailyLogs).forEach(ids => {
+        ids.forEach(id => {
+          const rule = state.rules.find(r => r.id === id);
+          if (rule) earned += rule.points;
+        });
+      });
+      let spent = state.redeemLogs.reduce((acc, cur) => acc + cur.cost, 0);
+      state.totalPoints = earned - spent;
+      localStorage.setItem('HERO_XP_DATA', JSON.stringify(state));
+      document.getElementById('headerPoints').innerText = state.totalPoints;
+    }
+
+    let viewDate = new Date();
+    let activeDateStr = "";
+    let statMode = 'month';
+    let statDate = new Date();
+
+    window.onload = () => {
+      persist();
+      renderCalendar();
+      renderRewards();
+      renderRules();
+      if (state.lastSyncTime) {
+        document.getElementById('syncTimeLabel').innerText = `已同步: ${state.lastSyncTime}`;
+      }
+    };
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('text-orange-500', 'font-bold');
+        btn.classList.add('text-slate-400', 'font-medium');
+      });
+      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`btn-${tabId}`);
+      activeBtn.classList.remove('text-slate-400', 'font-medium');
+      activeBtn.classList.add('text-orange-500', 'font-bold');
+      if (tabId === 'stats') renderStats();
+    }
+
+    // ==================== 手动同步与数据备份逻辑 ====================
+    async function triggerManualSync() {
+      const icon = document.getElementById('syncIcon');
+      const text = document.getElementById('syncBtnText');
+      const dot = document.getElementById('syncDot');
+      const label = document.getElementById('syncTimeLabel');
+
+      icon.classList.add('animate-spin');
+      text.innerText = "同步中";
+      dot.className = "w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse";
+      label.innerText = "正在同步...";
+
+      const nowTime = new Date().toTimeString().slice(0, 5);
+
+      try {
+        if (state.syncConfig && state.syncConfig.binId && state.syncConfig.apiKey) {
+          // 如果用户配置了 JSONBin，发起真实请求
+          await fetch(`https://api.jsonbin.io/v3/b/${state.syncConfig.binId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Master-Key': state.syncConfig.apiKey
+            },
+            body: JSON.stringify(state)
+          });
+        } else {
+          // 模拟网络平滑延迟
+          await new Promise(r => setTimeout(r, 600));
+        }
+
+        state.lastSyncTime = nowTime;
+        persist();
+
+        dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-300";
+        label.innerText = `已同步 (${nowTime})`;
+        text.innerText = "已同步";
+        setTimeout(() => { text.innerText = "同步"; }, 1500);
+      } catch (err) {
+        dot.className = "w-1.5 h-1.5 rounded-full bg-rose-400";
+        label.innerText = "同步失败，请检查网络";
+        text.innerText = "失败";
+        setTimeout(() => { text.innerText = "同步"; }, 2000);
+      } finally {
+        icon.classList.remove('animate-spin');
+      }
+    }
+
+    function openSyncConfigModal() {
+      document.getElementById('cfgBinId').value = (state.syncConfig && state.syncConfig.binId) || '';
+      document.getElementById('cfgApiKey').value = (state.syncConfig && state.syncConfig.apiKey) || '';
+      document.getElementById('syncConfigModal').classList.remove('hidden');
+    }
+    function closeSyncConfigModal() {
+      document.getElementById('syncConfigModal').classList.add('hidden');
+    }
+    function saveSyncConfig() {
+      if (!state.syncConfig) state.syncConfig = {};
+      state.syncConfig.binId = document.getElementById('cfgBinId').value.trim();
+      state.syncConfig.apiKey = document.getElementById('cfgApiKey').value.trim();
+      persist();
+      closeSyncConfigModal();
+      alert('云端同步配置已保存！现在点击“同步”将自动连接该接口。');
+    }
+
+    function exportDataJson() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `HeroXP_Backup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importDataJson() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          try {
+            const imported = JSON.parse(ev.target.result);
+            if (imported.rules && imported.rewards) {
+              state = imported;
+              persist();
+              renderCalendar();
+              renderRewards();
+              renderRules();
+              alert('✅ 数据恢复成功！');
+            } else {
+              alert('文件格式不正确！');
+            }
+          } catch(err) {
+            alert('读取备份失败，请检查文件是否为合法 JSON');
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+
+    // ==================== 日历打分 ====================
+    function changeMonth(delta) {
+      viewDate.setMonth(viewDate.getMonth() + delta);
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const year = viewDate.getFullYear();
+      const month = viewDate.getMonth();
+      document.getElementById('currentMonthLabel').innerText = `${year}年 ${month + 1}月`;
+
+      const firstDay = new Date(year, month, 1).getDay();
+      const totalDays = new Date(year, month + 1, 0).getDate();
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '';
+
+      for (let i = 0; i < firstDay; i++) {
+        grid.innerHTML += `<div class="h-16 bg-slate-50/50 rounded-xl"></div>`;
+      }
+
+      for (let day = 1; day <= totalDays; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const logs = state.dailyLogs[dateStr] || [];
+
+        let dayScore = 0;
+        logs.forEach(id => {
+          const rule = state.rules.find(r => r.id === id);
+          if (rule) dayScore += rule.points;
+        });
+
+        let scoreBadge = '';
+        if (logs.length > 0) {
+          if (dayScore >= 0) {
+            scoreBadge = `<span class="text-[10px] bg-emerald-100 text-emerald-700 font-extrabold px-1 rounded mt-1">+${dayScore}</span>`;
+          } else {
+            scoreBadge = `<span class="text-[10px] bg-rose-100 text-rose-700 font-extrabold px-1 rounded mt-1">${dayScore}</span>`;
+          }
+        }
+
+        const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
+        grid.innerHTML += `
+          <div onclick="openScoreDrawer('${dateStr}')" class="h-16 bg-white border border-slate-100 shadow-sm rounded-xl p-1 flex flex-col items-center justify-between cursor-pointer active:scale-95 transition ${isToday ? 'ring-2 ring-orange-500' : ''}">
+            <span class="text-xs font-bold ${isToday ? 'text-orange-500' : 'text-slate-700'}">${day}</span>
+            ${scoreBadge || '<span class="text-[10px] text-slate-300">•</span>'}
+          </div>
+        `;
+      }
+    }
+
+    function openScoreDrawer(dateStr) {
+      activeDateStr = dateStr;
+      document.getElementById('drawerDateTitle').innerText = `${dateStr} 奖惩打分`;
+      const container = document.getElementById('drawerItemList');
+      container.innerHTML = '';
+
+      const checkedIds = new Set(state.dailyLogs[dateStr] || []);
+
+      state.categories.forEach(cat => {
+        const catRules = state.rules.filter(r => r.category === cat.name);
+        if (catRules.length === 0) return;
+
+        let itemsHtml = catRules.map(r => {
+          const isChecked = checkedIds.has(r.id);
+          const isNegative = r.points < 0;
+          return `
+            <label class="flex items-center justify-between p-2.5 rounded-xl border transition cursor-pointer"
+                   style="${isChecked ? `border-color: ${cat.color}; background-color: ${cat.color}15;` : 'border-color: #f1f5f9; background-color: #f8fafc;'}">
+              <div class="flex items-center gap-2.5">
+                <input type="checkbox" onchange="toggleDrawerItem(${r.id})" ${isChecked ? 'checked' : ''} class="w-4 h-4 rounded" style="accent-color: ${cat.color};">
+                <span class="text-xs font-medium text-slate-800">${r.name}</span>
+              </div>
+              <span class="text-xs font-black ${isNegative ? 'text-rose-500' : 'text-emerald-600'}">${r.points > 0 ? '+' + r.points : r.points}</span>
+            </label>
+          `;
+        }).join('');
+
+        container.innerHTML += `
+          <div class="space-y-1.5">
+            <div class="flex items-center gap-2 px-1">
+              <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${cat.color}"></span>
+              <h4 class="text-xs font-bold text-slate-700 leading-none">${cat.name}</h4>
+            </div>
+            <div class="space-y-1">${itemsHtml}</div>
+          </div>
+        `;
+      });
+
+      updateDrawerSum();
+      document.getElementById('scoreDrawer').classList.remove('hidden');
+    }
+
+    function toggleDrawerItem(id) {
+      if (!state.dailyLogs[activeDateStr]) state.dailyLogs[activeDateStr] = [];
+      const index = state.dailyLogs[activeDateStr].indexOf(id);
+      if (index > -1) {
+        state.dailyLogs[activeDateStr].splice(index, 1);
+      } else {
+        state.dailyLogs[activeDateStr].push(id);
+      }
+      updateDrawerSum();
+    }
+
+    function updateDrawerSum() {
+      const ids = state.dailyLogs[activeDateStr] || [];
+      let sum = 0;
+      ids.forEach(id => {
+        const rule = state.rules.find(r => r.id === id);
+        if (rule) sum += rule.points;
+      });
+      document.getElementById('drawerDailyTotal').innerText = (sum >= 0 ? '+' : '') + sum;
+    }
+
+    function closeDrawer() { document.getElementById('scoreDrawer').classList.add('hidden'); }
+
+    function saveDailyScore() {
+      if (state.dailyLogs[activeDateStr] && state.dailyLogs[activeDateStr].length === 0) {
+        delete state.dailyLogs[activeDateStr];
+      }
+      persist();
+      renderCalendar();
+      closeDrawer();
+    }
+
+    // ==================== 类别管理 ====================
+    function renderColorPalette(selectedHex) {
+      const container = document.getElementById('colorPaletteContainer');
+      container.innerHTML = PALETTE_COLORS.map(c => `
+        <button type="button" onclick="selectCategoryColor('${c.hex}')"
+                class="flex flex-col items-center p-2 rounded-xl border transition ${selectedHex === c.hex ? 'border-slate-800 bg-slate-50 ring-2 ring-slate-800' : 'border-slate-200'}">
+          <span class="w-6 h-6 rounded-full shadow-sm mb-1" style="background-color: ${c.hex}"></span>
+          <span class="text-[10px] font-bold text-slate-600">${c.name}</span>
+        </button>
+      `).join('');
+    }
+
+    function selectCategoryColor(hex) {
+      currentSelectedColor = hex;
+      renderColorPalette(hex);
+    }
+
+    function openCategoryModal(isEdit = false, name = '') {
+      document.getElementById('categoryModalTitle').innerText = isEdit ? `编辑类别: ${name}` : '新增类别';
+      document.getElementById('categoryOldName').value = isEdit ? name : '';
+      document.getElementById('categoryNameInput').value = isEdit ? name : '';
+
+      let catColor = "#10b981";
+      if (isEdit) {
+        const cat = state.categories.find(c => c.name === name);
+        if (cat) catColor = cat.color;
+      }
+      currentSelectedColor = catColor;
+      renderColorPalette(catColor);
+
+      document.getElementById('categoryModal').classList.remove('hidden');
+    }
+    function closeCategoryModal() { document.getElementById('categoryModal').classList.add('hidden'); }
+
+    function saveCategory() {
+      const oldName = document.getElementById('categoryOldName').value.trim();
+      const newName = document.getElementById('categoryNameInput').value.trim();
+      if (!newName) return alert('类别名称不能为空！');
+
+      if (oldName) {
+        const cat = state.categories.find(c => c.name === oldName);
+        if (cat) {
+          cat.name = newName;
+          cat.color = currentSelectedColor;
+        }
+        state.rules.forEach(r => { if (r.category === oldName) r.category = newName; });
+      } else {
+        if (state.categories.some(c => c.name === newName)) return alert('该类别已存在！');
+        state.categories.push({ name: newName, color: currentSelectedColor });
+      }
+
+      persist();
+      renderRules();
+      closeCategoryModal();
+    }
+
+    function deleteCategory(catName) {
+      const count = state.rules.filter(r => r.category === catName).length;
+      const msg = count > 0
+        ? `确认删除分类“${catName}”吗？\n该类别下的 ${count} 个具体事项也将被一并删除！`
+        : `确认删除分类“${catName}”吗？`;
+      if (!confirm(msg)) return;
+
+      state.categories = state.categories.filter(c => c !== catName);
+      state.rules = state.rules.filter(r => r.category !== catName);
+      persist();
+      renderRules();
+    }
+
+    // ==================== 具体事项管理 ====================
+    function renderRules() {
+      const container = document.getElementById('ruleList');
+      container.innerHTML = '';
+
+      if (state.categories.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-slate-400 text-xs">暂无任何类别，请点击上方“+ 新增类别”</div>`;
+        return;
+      }
+
+      state.categories.forEach(cat => {
+        const catRules = state.rules.filter(r => r.category === cat.name);
+        let itemsHtml = catRules.map(r => `
+          <div class="flex justify-between items-center p-3 bg-white border border-slate-100 rounded-xl shadow-xs">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold px-2 py-0.5 rounded ${r.points > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">${r.points > 0 ? '+' + r.points : r.points}</span>
+              <span class="text-xs font-bold text-slate-700">${r.name}</span>
+            </div>
+            <div class="flex items-center gap-2.5">
+              <button onclick="editRule(${r.id})" class="text-xs text-blue-500 font-medium hover:underline">编辑</button>
+              <button onclick="deleteRule(${r.id})" class="text-xs text-rose-400 font-medium hover:underline">删除</button>
+            </div>
+          </div>
+        `).join('');
+
+        container.innerHTML += `
+          <div class="space-y-2.5 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/60 shadow-xs transition"
+               style="border-left: 4px solid ${cat.color};">
+
+            <div class="flex justify-between items-center h-6">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${cat.color}"></span>
+                <span class="text-xs font-black text-slate-800 leading-none">${cat.name}</span>
+                <span class="text-[10px] bg-slate-200/90 text-slate-600 font-bold px-1.5 py-0.5 rounded-full leading-none">${catRules.length}</span>
+              </div>
+
+              <div class="flex items-center gap-1.5">
+                <button onclick="openRuleModal(false, '${cat.name}')" class="px-2 py-1 rounded-md text-[11px] font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 transition leading-none">
+                  +加事项
+                </button>
+                <button onclick="openCategoryModal(true, '${cat.name}')" class="px-2 py-1 rounded-md text-[11px] font-medium text-slate-600 hover:bg-slate-200/60 transition leading-none">
+                  编辑类别
+                </button>
+                <button onclick="deleteCategory('${cat.name}')" class="px-2 py-1 rounded-md text-[11px] font-medium text-rose-500 hover:bg-rose-50 transition leading-none">
+                  删类别
+                </button>
+              </div>
+            </div>
+
+            <div class="space-y-1.5">
+              ${itemsHtml || '<div class="text-center py-2 text-slate-300 text-xs">该类别暂无事项，点击上方加事项</div>'}
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function updateCategoryDropdown(selectedCat = "") {
+      const select = document.getElementById('ruleCategory');
+      select.innerHTML = state.categories.map(c => `<option value="${c.name}" ${c.name === selectedCat ? 'selected' : ''}>${c.name}</option>`).join('');
+    }
+
+    function openRuleModal(isEdit = false, defaultCat = "") {
+      if (state.categories.length === 0) return alert('请先添加至少一个类别！');
+      document.getElementById('ruleModalTitle').innerText = isEdit ? '修改具体事项' : '新增具体事项';
+      updateCategoryDropdown(defaultCat || state.categories[0].name);
+      if (!isEdit) {
+        document.getElementById('ruleEditId').value = '';
+        document.getElementById('ruleName').value = '';
+        document.getElementById('rulePoints').value = '';
+      }
+      document.getElementById('ruleModal').classList.remove('hidden');
+    }
+    function closeRuleModal() { document.getElementById('ruleModal').classList.add('hidden'); }
+
+    function editRule(id) {
+      const rule = state.rules.find(r => r.id === id);
+      if (!rule) return;
+      document.getElementById('ruleEditId').value = rule.id;
+      document.getElementById('ruleName').value = rule.name;
+      document.getElementById('rulePoints').value = rule.points;
+      openRuleModal(true, rule.category);
+    }
+
+    function deleteRule(id) {
+      if (!confirm('确定要删除该事项吗？')) return;
+      state.rules = state.rules.filter(r => r.id !== id);
+      persist();
+      renderRules();
+    }
+
+    function saveRuleItem() {
+      const id = document.getElementById('ruleEditId').value;
+      const category = document.getElementById('ruleCategory').value;
+      const name = document.getElementById('ruleName').value.trim();
+      const points = parseInt(document.getElementById('rulePoints').value);
+
+      if (!name || isNaN(points)) return alert('请填写完整描述和积分分值！');
+
+      if (id) {
+        const item = state.rules.find(r => r.id == id);
+        item.category = category; item.name = name; item.points = points;
+      } else {
+        state.rules.push({ id: Date.now(), category, name, points });
+      }
+      persist();
+      renderRules();
+      closeRuleModal();
+    }
+
+    // ==================== 积分兑换商城与历史记录 ====================
+    function renderRewards() {
+      const container = document.getElementById('rewardList');
+      container.innerHTML = '';
+
+      state.rewards.sort((a,b) => a.cost - b.cost).forEach(r => {
+        const canAfford = state.totalPoints >= r.cost;
+        container.innerHTML += `
+          <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-2.5">
+            <div class="flex justify-between items-start">
+              <div>
+                <span class="text-xl font-black text-amber-500">${r.cost}</span>
+                <span class="text-xs font-bold text-amber-500">积分兑换档</span>
+                ${r.rule ? `<span class="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">${r.rule}</span>` : ''}
+              </div>
+              <div class="flex gap-2 text-xs">
+                <button onclick="editReward(${r.id})" class="text-slate-400 hover:text-blue-500">编辑</button>
+                <button onclick="deleteReward(${r.id})" class="text-slate-400 hover:text-red-500">删除</button>
+              </div>
+            </div>
+            <p class="text-xs text-slate-600 whitespace-pre-line font-medium leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">${r.text}</p>
+            <button onclick="redeemReward(${r.id})" ${canAfford ? '' : 'disabled'} class="w-full py-2 rounded-xl text-xs font-bold transition ${canAfford ? 'bg-orange-500 text-white shadow-md' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}">
+              ${canAfford ? '立即兑换奖励' : '积分不足以兑换'}
+            </button>
+          </div>
+        `;
+      });
+    }
+
+    function openRewardModal(isEdit = false) {
+      document.getElementById('rewardModalTitle').innerText = isEdit ? '修改兑换方案' : '新增兑换方案';
+      if (!isEdit) {
+        document.getElementById('rewardEditId').value = '';
+        document.getElementById('rewardCost').value = '';
+        document.getElementById('rewardText').value = '';
+        document.getElementById('rewardRule').value = '';
+      }
+      document.getElementById('rewardModal').classList.remove('hidden');
+    }
+    function closeRewardModal() { document.getElementById('rewardModal').classList.add('hidden'); }
+
+    function editReward(id) {
+      const reward = state.rewards.find(r => r.id === id);
+      if (!reward) return;
+      document.getElementById('rewardEditId').value = reward.id;
+      document.getElementById('rewardCost').value = reward.cost;
+      document.getElementById('rewardText').value = reward.text;
+      document.getElementById('rewardRule').value = reward.rule || '';
+      openRewardModal(true);
+    }
+
+    function deleteReward(id) {
+      if (!confirm('确定删除该兑换方案吗？')) return;
+      state.rewards = state.rewards.filter(r => r.id !== id);
+      persist();
+      renderRewards();
+    }
+
+    function saveRewardItem() {
+      const id = document.getElementById('rewardEditId').value;
+      const cost = parseInt(document.getElementById('rewardCost').value);
+      const text = document.getElementById('rewardText').value.trim();
+      const rule = document.getElementById('rewardRule').value.trim();
+
+      if (isNaN(cost) || !text) return alert('请填写所需积分与奖品内容');
+
+      if (id) {
+        const item = state.rewards.find(r => r.id == id);
+        item.cost = cost; item.text = text; item.rule = rule;
+      } else {
+        state.rewards.push({ id: Date.now(), cost, text, rule });
+      }
+      persist();
+      renderRewards();
+      closeRewardModal();
+    }
+
+    function redeemReward(id) {
+      const r = state.rewards.find(item => item.id === id);
+      if (!confirm(`确认消耗 ${r.cost} 积分兑换该方案吗？`)) return;
+      state.redeemLogs.unshift({
+        id: Date.now(),
+        date: new Date().toISOString().split('T')[0],
+        cost: r.cost,
+        name: r.text.replace(/\n/g, ' / ')
+      });
+      persist();
+      renderRewards();
+      alert('🎉 兑换成功！记得向爸爸妈妈领取奖励哦！');
+    }
+
+    function openRedeemHistoryModal() {
+      const list = document.getElementById('redeemHistoryList');
+      list.innerHTML = '';
+      if (!state.redeemLogs || state.redeemLogs.length === 0) {
+        list.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">暂无兑换记录</div>`;
+      } else {
+        state.redeemLogs.forEach(item => {
+          list.innerHTML += `
+            <div class="p-3 bg-slate-50 border border-slate-100 rounded-xl flex justify-between items-start">
+              <div class="space-y-1">
+                <span class="text-[10px] text-slate-400 font-bold">${item.date}</span>
+                <p class="text-xs font-bold text-slate-700 leading-snug">${item.name}</p>
+                <span class="inline-block text-[11px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">-${item.cost} 积分</span>
+              </div>
+              <button onclick="refundRedeem(${item.id})" class="text-[10px] text-rose-500 font-bold hover:underline ml-2 whitespace-nowrap">撤销/退分</button>
+            </div>
+          `;
+        });
+      }
+      document.getElementById('redeemHistoryModal').classList.remove('hidden');
+    }
+    function closeRedeemHistoryModal() { document.getElementById('redeemHistoryModal').classList.add('hidden'); }
+
+    function refundRedeem(logId) {
+      if (!confirm('确认撤销该条兑换吗？消耗的积分将退回当前总积分。')) return;
+      state.redeemLogs = state.redeemLogs.filter(log => log.id !== logId);
+      persist();
+      renderRewards();
+      openRedeemHistoryModal();
+    }
+
+    // ==================== 统计分析 ====================
+    function setStatMode(mode) {
+      statMode = mode;
+      const monthBtn = document.getElementById('statModeMonthBtn');
+      const yearBtn = document.getElementById('statModeYearBtn');
+      if (mode === 'month') {
+        monthBtn.className = "flex-1 py-1.5 rounded-lg text-xs font-bold bg-white text-orange-500 shadow-sm transition";
+        yearBtn.className = "flex-1 py-1.5 rounded-lg text-xs font-bold text-slate-500 transition";
+      } else {
+        yearBtn.className = "flex-1 py-1.5 rounded-lg text-xs font-bold bg-white text-orange-500 shadow-sm transition";
+        monthBtn.className = "flex-1 py-1.5 rounded-lg text-xs font-bold text-slate-500 transition";
+      }
+      renderStats();
+    }
+
+    function changeStatPeriod(delta) {
+      if (statMode === 'month') {
+        statDate.setMonth(statDate.getMonth() + delta);
+      } else {
+        statDate.setFullYear(statDate.getFullYear() + delta);
+      }
+      renderStats();
+    }
+
+    function renderStats() {
+      const year = statDate.getFullYear();
+      const month = statDate.getMonth() + 1;
+      const monthStr = String(month).padStart(2, '0');
+
+      const label = statMode === 'month' ? `${year}年 ${month}月` : `${year}年 全年`;
+      document.getElementById('statPeriodLabel').innerText = label;
+
+      const prefix = statMode === 'month' ? `${year}-${monthStr}` : `${year}`;
+
+      let totalEarned = 0;
+      let totalDeducted = 0;
+      let countsByRule = {};
+
+      Object.entries(state.dailyLogs).forEach(([dateStr, itemIds]) => {
+        if (dateStr.startsWith(prefix)) {
+          itemIds.forEach(id => {
+            const rule = state.rules.find(r => r.id === id);
+            if (rule) {
+              if (rule.points > 0) totalEarned += rule.points;
+              else totalDeducted += Math.abs(rule.points);
+              countsByRule[rule.name] = (countsByRule[rule.name] || 0) + 1;
+            }
+          });
+        }
+      });
+
+      let spent = 0;
+      state.redeemLogs.forEach(r => {
+        if (r.date.startsWith(prefix)) spent += r.cost;
+      });
+
+      document.getElementById('statEarned').innerText = `+${totalEarned}`;
+      document.getElementById('statDeducted').innerText = `-${totalDeducted}`;
+      document.getElementById('statSpent').innerText = `${spent}`;
+      document.getElementById('statNet').innerText = `${totalEarned - totalDeducted}`;
+
+      const barContainer = document.getElementById('statCategoryBars');
+      barContainer.innerHTML = '';
+      const sortedRules = Object.entries(countsByRule).sort((a,b) => b[1] - a[1]).slice(0, 5);
+
+      if (sortedRules.length === 0) {
+        barContainer.innerHTML = '<p class="text-slate-400 text-center py-4">该周期内暂无打卡数据</p>';
+      } else {
+        sortedRules.forEach(([name, count]) => {
+          barContainer.innerHTML += `
+            <div>
+              <div class="flex justify-between mb-1">
+                <span class="font-medium text-slate-700">${name}</span>
+                <span class="font-bold text-orange-500">${count} 次</span>
+              </div>
+              <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div class="bg-orange-500 h-full rounded-full" style="width: ${Math.min(count * 10, 100)}%"></div>
+              </div>
+            </div>
+          `;
+        });
+      }
+    }
+  </script>
+</body>
+</html>
