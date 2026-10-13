@@ -32,9 +32,9 @@ export function initStats(ctx) {
       .map(
         (item) => `
         <div>
-          <div class="flex justify-between mb-1">
+          <div class="flex justify-between items-center mb-1 gap-2">
             <span class="font-medium text-slate-700">${escapeHtml(item.name)}</span>
-            <span class="font-bold text-orange-500">${item.count} 次</span>
+            <span class="font-bold text-orange-500 whitespace-nowrap">${item.count} 次</span>
           </div>
           <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
             <div class="bg-orange-500 h-full rounded-full" style="width: ${Math.min(item.count * 10, 100)}%"></div>

@@ -6,12 +6,15 @@ import { buildBackupPayload, backupFileName, parseBackup, BackupFormatError } fr
 import { mergeDocuments, resolveConflicts } from '../domain/merge.js';
 
 const MOVE_BUTTON_CLASS =
-  'w-5 h-5 rounded-md text-[11px] leading-none text-slate-500 bg-slate-200/70 hover:bg-slate-300/70 transition disabled:opacity-25 disabled:cursor-default';
+  'w-5 h-5 rounded-md text-[11px] leading-none text-slate-500 bg-slate-200/70 hover:bg-slate-300/70 transition disabled:opacity-25 disabled:cursor-default shrink-0';
+
+const ICON_BUTTON_CLASS =
+  'w-7 h-7 rounded-md text-xs leading-none flex items-center justify-center transition shrink-0';
 
 function moveButtons({ action, id, index, total, className = MOVE_BUTTON_CLASS }) {
   if (total < 2) return '';
   return `
-    <span class="flex items-center gap-0.5">
+    <span class="flex items-center gap-0.5 shrink-0">
       <button data-action="${action}" data-id="${escapeHtml(id)}" data-dir="-1" title="上移"
         ${index === 0 ? 'disabled' : ''} class="${className}">↑</button>
       <button data-action="${action}" data-id="${escapeHtml(id)}" data-dir="1" title="下移"
@@ -42,7 +45,7 @@ export function initRules(ctx) {
             const versionCount = rule.versions.length;
             return `
             <div class="flex justify-between items-center gap-2 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
-              <div class="flex items-start gap-2 min-w-0">
+              <div class="flex items-center gap-2 min-w-0">
                 <span class="text-xs font-bold px-2 py-0.5 rounded shrink-0 ${points > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">${points > 0 ? '+' + points : points}</span>
                 <span class="text-xs font-bold text-slate-700">${escapeHtml(nameAt(rule, today))}</span>
                 ${versionCount > 1 ? `<span class="text-[9px] text-slate-400 shrink-0">已调整 ${versionCount - 1} 次</span>` : ''}
@@ -59,17 +62,17 @@ export function initRules(ctx) {
         return `
         <div class="space-y-2.5 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/60 shadow-sm transition"
              style="border-left: 4px solid ${escapeHtml(category.color)};">
-          <div class="flex justify-between items-center gap-1 h-6">
-            <div class="flex items-center gap-2 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 min-w-0">
               <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${escapeHtml(category.color)}"></span>
-              <span class="text-xs font-black text-slate-800 leading-none">${escapeHtml(category.name)}</span>
-              <span class="text-[10px] bg-slate-200/90 text-slate-600 font-bold px-1.5 py-0.5 rounded-full leading-none">${catRules.length}</span>
+              <span class="text-xs font-black text-slate-800 truncate">${escapeHtml(category.name)}</span>
+              <span class="text-[10px] bg-slate-200/90 text-slate-600 font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0">${catRules.length}</span>
               ${moveButtons({ action: 'move-cat', id: category.id, index: categoryIndex, total: categories.length })}
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
-              <button data-action="add-rule" data-cat="${escapeHtml(category.id)}" class="px-2 py-1 rounded-md text-[11px] font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 transition leading-none">+加事项</button>
-              <button data-action="edit-cat" data-id="${escapeHtml(category.id)}" class="px-2 py-1 rounded-md text-[11px] font-medium text-slate-600 hover:bg-slate-200/60 transition leading-none">编辑类别</button>
-              <button data-action="delete-cat" data-id="${escapeHtml(category.id)}" class="px-2 py-1 rounded-md text-[11px] font-medium text-rose-500 hover:bg-rose-50 transition leading-none">删类别</button>
+              <button data-action="add-rule" data-cat="${escapeHtml(category.id)}" class="px-2 py-1 rounded-md text-[11px] font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 transition leading-none whitespace-nowrap shrink-0">+加事项</button>
+              <button data-action="edit-cat" data-id="${escapeHtml(category.id)}" title="编辑类别" aria-label="编辑类别" class="${ICON_BUTTON_CLASS} bg-slate-100 text-slate-600 hover:bg-slate-200/80">✏️</button>
+              <button data-action="delete-cat" data-id="${escapeHtml(category.id)}" title="删类别" aria-label="删类别" class="${ICON_BUTTON_CLASS} bg-rose-50 text-rose-500 hover:bg-rose-100">🗑️</button>
             </div>
           </div>
           <div class="space-y-1.5">

@@ -42,9 +42,10 @@ npm run check    # 校验产物：无 CDN 引用、相对路径完整、无凭�
 
 ## 部署到 GitHub Pages
 
-1. 推送到 `main` 分支，或手动触发 `Deploy HeroXP to GitHub Pages` 工作流。
-2. 仓库 Settings → Pages → Source 选择 **GitHub Actions**。
-3. 工作流会依次执行测试、构建、产物检查，然后发布 `dist/`。
+1. **先启用 Pages**：仓库 Settings → Pages → Build and deployment → Source 选择 **GitHub Actions**。
+   （不设置的话工作流会在 `Configure Pages` 一步失败，测试/构建都会通过。）
+2. 推送到 `main` 分支，或在 Actions 页手动触发 `Deploy HeroXP to GitHub Pages` 工作流。
+3. 工作流依次执行测试、构建、产物检查，然后发布 `dist/`；成功后站点地址为 `https://<用户名>.github.io/<仓库名>/`。
 
 站点使用全部相对路径，适配 `https://<用户名>.github.io/<仓库名>/` 子路径部署，并包含 `.nojekyll`。
 
