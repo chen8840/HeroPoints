@@ -69,6 +69,23 @@ export function initInstall() {
   return { render };
 }
 
+/**
+ * 尽力锁定竖屏：
+ * - 已安装的 Android PWA / 全屏环境：screen.orientation.lock 立即生效；
+ * - Android 浏览器页签或 iOS：锁定不可用，由 manifest 与横屏提示兜底。
+ * 返回是否发起了锁定请求（便于测试）。
+ */
+export function initOrientationLock() {
+  const orientation = globalThis.screen?.orientation;
+  if (!orientation || typeof orientation.lock !== 'function') return false;
+  try {
+    void Promise.resolve(orientation.lock('portrait')).catch(() => {});
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function initServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   if (globalThis.__HEROXP_DEV__) {

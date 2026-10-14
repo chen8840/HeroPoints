@@ -10,7 +10,7 @@ import { initStats } from './ui/stats.js';
 import { initRules } from './ui/rules.js';
 import { initModals } from './ui/modals.js';
 import { initConflicts } from './ui/conflicts.js';
-import { initInstall, initServiceWorker } from './ui/install.js';
+import { initInstall, initServiceWorker, initOrientationLock } from './ui/install.js';
 
 const store = createStore();
 const loadResult = store.load();
@@ -197,6 +197,7 @@ function boot(loadResult) {
     if (document.visibilityState === 'visible') void runAutoCheck();
   });
 
+  initOrientationLock();
   initServiceWorker();
 
   if (loadResult.migratedFromLegacy) {

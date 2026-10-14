@@ -61,6 +61,14 @@ if (!distStat) {
   }
   if (!files.some((file) => file === 'manifest.webmanifest')) {
     problems.push('dist/manifest.webmanifest 缺失');
+  } else {
+    const manifest = JSON.parse(await readFile(path.join(dist, 'manifest.webmanifest'), 'utf8'));
+    if (manifest.orientation !== 'portrait') {
+      problems.push('manifest 未锁定竖屏（orientation 应为 portrait）');
+    }
+    if (manifest.display !== 'standalone') {
+      problems.push('manifest 的 display 应为 standalone');
+    }
   }
 
   // 6. 所有文本类产物不得包含本地绝对路径引用（适配 GitHub Pages 子路径）

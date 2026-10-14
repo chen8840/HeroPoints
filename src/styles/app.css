@@ -40,3 +40,23 @@
     min-height: 100dvh;
   }
 }
+
+/* 横屏提示：桌面浏览器与锁定成功的安装版不会触发；仅覆盖触屏设备（手机/平板）的横屏 */
+.landscape-notice {
+  display: none;
+}
+
+@media (orientation: landscape) and (pointer: coarse) {
+  .landscape-notice {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    background: #f8fafc;
+    text-align: center;
+  }
+}

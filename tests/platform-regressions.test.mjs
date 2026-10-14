@@ -125,3 +125,35 @@ test('已有待激活的新版本时，打开应用依然提示更新（而非�
     }
   }
 });
+
+test('启动时尝试锁定竖屏；不支持的环境静默降级', async () => {
+  const previousWindow = globalThis.window;
+  const previousScreen = Object.getOwnPropertyDescriptor(globalThis, 'screen');
+  if (typeof globalThis.window === 'undefined') globalThis.window = { addEventListener() {} };
+  try {
+    const { initOrientationLock } = await import('../src/ui/install.js');
+
+    let requested = null;
+    Object.defineProperty(globalThis, 'screen', {
+      configurable: true,
+      value: { orientation: { lock: async (value) => { requested = value; } } }
+    });
+    assert.equal(initOrientationLock(), true, '支持锁定时应发起请求');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(requested, 'portrait');
+
+    Object.defineProperty(globalThis, 'screen', { configurable: true, value: { orientation: {} } });
+    assert.equal(initOrientationLock(), false, '不支持 lock 的环境不报错');
+
+    Object.defineProperty(globalThis, 'screen', {
+      configurable: true,
+      value: { orientation: { lock: () => { throw new Error('denied'); } } }
+    });
+    assert.equal(initOrientationLock(), false, '锁定被拒绝时静默降级');
+  } finally {
+    if (previousScreen === undefined) delete globalThis.screen;
+    else Object.defineProperty(globalThis, 'screen', previousScreen);
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});

@@ -53,7 +53,7 @@
 
 ### PWA 与离线体验
 - 配置 manifest（含 `start_url`、`scope`、`display: standalone`、主题色）、iOS 主屏幕图标、状态栏、安全区和 Service Worker；提供 Android 所需的192／512像素图标及 maskable 图标。预缓存应用入口、构建生成的本地 CSS、脚本、图标及初始化数据。
-- 布局适配 iPhone 与不同尺寸的 Android 手机、横竖屏、系统导航安全区和软键盘；Android 返回操作应先关闭弹窗／抽屉，避免直接退出当前操作。
+- 布局适配 iPhone 与不同尺寸的 Android 手机、系统导航安全区和软键盘；禁止横屏：manifest 锁定竖屏（Android 安装版生效）、启动时尝试 screen.orientation.lock，不支持锁定的平台（如 iOS）横屏时显示“请转回竖屏”提示。Android 返回操作应先关闭弹窗／抽屉，避免直接退出当前操作。
 - 适配 GitHub Pages 仓库子路径，避免绝对根路径导致子路径部署或 Service Worker 失效。
 - 首次需联网访问以下载缓存；之后离线可打分、维护规则、兑换、查看统计，操作数据先落本地。
 - 提供 iPhone Safari“分享 → 添加到主屏幕”与 Android Chrome“安装应用／添加到主屏幕”指引，以及缓存版本更新提示。
@@ -190,7 +190,7 @@
 - **Excel**：核对规则名、分值、类别、兑换方案、插入行后的公式与打印版面。
 - **同步**：首次打开读取远端；数据一致仍记当天成功；当天后续打开自动跳过；本地当天新改动次日自动同步或主动手动同步；手动同步每天最多 3 次、每次检查最新远端、达到上限后提示且不再请求；同步中防止重复请求；断网／失败可重试；多设备独立记录合并、同记录冲突提示、并发写入保护。
 - **存储**：重启恢复、旧 schema 迁移、损坏数据提示、空间不足处理、导出／导入及密钥未导出。
-- **PWA/iOS/Android**：GitHub Pages 子路径、首次在线缓存、飞行模式冷启动；确认断网后页面及 Tailwind 样式均正常，且应用运行时无 CDN 请求；分别验证 iPhone Safari 主屏幕安装、Android Chrome 安装按钮／菜单安装、常规与 maskable 图标、独立窗口、缓存更新、安全区、软键盘、横竖屏和关闭后本地数据保留。Android 返回操作正确关闭弹窗／抽屉。
+- **PWA/iOS/Android**：GitHub Pages 子路径、首次在线缓存、飞行模式冷启动；确认断网后页面及 Tailwind 样式均正常，且应用运行时无 CDN 请求；分别验证 iPhone Safari 主屏幕安装、Android Chrome 安装按钮／菜单安装、常规与 maskable 图标、独立窗口、缓存更新、安全区、软键盘、竖屏锁定与横屏提示和关闭后本地数据保留。Android 返回操作正确关闭弹窗／抽屉。
 - **跨平台**：iPhone 与 Android 使用相同 Bin，验证手动同步、每天自动检查、历史规则分值、合并冲突、兑换／撤销及 JSON 备份导入导出。
 - **部署**：GitHub Actions 构建通过，发布后使用真实 HTTPS 地址验证 PWA 与同步 API 跨域访问。
 
