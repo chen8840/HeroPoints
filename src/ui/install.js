@@ -83,6 +83,11 @@ export function initServiceWorker() {
   }
   window.addEventListener('load', () => {
     void navigator.serviceWorker.register('./sw.js').then((registration) => {
+      // 已下载但未激活的新版本（例如上次打开时未点「立即刷新」）：
+      // updatefound 不会再次触发，必须在每次打开时直接检查 waiting，否则永远不会再提示。
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        showUpdateBanner(registration.waiting);
+      }
       registration.addEventListener('updatefound', () => {
         const worker = registration.installing;
         if (!worker) return;
@@ -91,6 +96,16 @@ export function initServiceWorker() {
             showUpdateBanner(worker);
           }
         });
+      });
+      // 打开应用和回到前台时主动检查一次新版本（应用可能长期不关闭）
+      const checkForUpdate = () => {
+        if (typeof registration.update === 'function') {
+          void registration.update().catch(() => {});
+        }
+      };
+      checkForUpdate();
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') checkForUpdate();
       });
     });
   });

@@ -60,3 +60,68 @@ test('Android back cancels actual conflict promise and allows next conflict dial
     }
   }
 });
+
+test('已有待激活的新版本时，打开应用依然提示更新（而非永远静默）', async () => {
+  const listeners = {};
+  const elements = new Map();
+  const element = (id) => {
+    if (!elements.has(id)) {
+      elements.set(id, {
+        classList: {
+          removed: [],
+          add() {},
+          remove(className) {
+            this.removed.push(className);
+          },
+          contains: () => false
+        },
+        addEventListener() {}
+      });
+    }
+    return elements.get(id);
+  };
+
+  let updateCalls = 0;
+  const registration = {
+    waiting: { postMessage() {} },
+    addEventListener() {},
+    update: async () => {
+      updateCalls += 1;
+    }
+  };
+
+  const previousNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const previous = { window: globalThis.window, document: globalThis.document };
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      serviceWorker: {
+        controller: {},
+        register: async () => registration,
+        addEventListener() {}
+      }
+    }
+  });
+  Object.assign(globalThis, {
+    window: { addEventListener: (type, fn) => { listeners[type] = fn; } },
+    document: { getElementById: element, addEventListener() {}, visibilityState: 'visible' }
+  });
+
+  try {
+    const { initServiceWorker } = await import('../src/ui/install.js');
+    initServiceWorker();
+    listeners.load();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const banner = elements.get('updateBanner');
+    assert.ok(banner, '应访问更新横幅元素');
+    assert.ok(banner.classList.removed.includes('hidden'), '存在待激活版本时，打开应用应直接显示更新横幅');
+    assert.ok(updateCalls >= 1, '打开应用时应主动检查一次新版本');
+  } finally {
+    Object.defineProperty(globalThis, 'navigator', previousNavigator);
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});
